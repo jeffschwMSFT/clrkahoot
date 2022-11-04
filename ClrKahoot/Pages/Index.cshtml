@@ -1,0 +1,572 @@
+﻿@page
+
+<!-- todo
+general scaling astectics
+question/answer lengths + answer word wrap (can look ugly)
+-->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/3.1.7/signalr.min.js"></script>
+
+<style>
+	body {
+		background-color: #863C87;
+	}
+	div {
+		display:inline;
+		color: white;
+		font-size: 20px;
+	}
+	button {
+		color: white;
+		background-color: black;
+		border-color: white;
+	}
+
+	input {
+		color: white;
+		background-color: black;
+		border-color: white;
+		min-width: 200px;
+	}
+	.button-answer-a {
+		border-color: white;
+		background-color: red;
+		color: white;
+		height: 150px;
+		min-width: 300px;
+		max-width: 300px;
+	}
+	.button-answer-b {
+		border-color: white;
+		background-color: green;
+		color: white;
+		height: 150px;
+		min-width: 300px;
+		max-width: 300px;
+	}
+	.button-answer-c {
+		border-color: white;
+		background-color: goldenrod;
+		color: white;
+		height: 150px;
+		min-width: 300px;
+		max-width: 300px;
+	}
+	.button-answer-d {
+		border-color: white;
+		background-color: blue;
+		color: white;
+		height: 150px;
+		min-width: 300px;
+		max-width: 300px;
+	}
+
+</style>
+
+<div class="page" style="height: 100%; width: 100%;">
+	<div style="font-size:60px;">Trivia</div>
+	<br />
+
+    <div id="setupScene" style="visibility:visible;">
+		<div>Choose a username</div>
+        <input type="text" id="userName" />
+		<button id="joinButton" onclick="changeScene(2)" style="visibility:visible">join</button> 
+	</div>
+
+	<div id="createGameScene" style="visibility:collapse;">
+		<div style="font-size:30px;">Add questions</div><br /><br />
+
+		<div>Must have at least 1 question to start a session.  Hit next to save the current question.  Answers will be shuffled before shown to the players.</div> <br /><br />
+
+		<table>
+			<tr><td colspan="2"><div><b>Question: #</div><div id="cQuestionNumber">0</div></b></td></tr>
+			<tr><td><div><b>Content</b></div></td><td><input type="text" id="cQuestionContent" /></td></tr>
+			<tr><td><div><b>Correct answer</b></div></td><td><input type="text" id="cQuestionAns0" /></td></tr>
+			<tr><td><div><b>Answer #2</b></div></td><td><input type="text" id="cQuestionAns1" /></td></tr>
+			<tr><td><div><b>Answer #3</b></div></td><td><input type="text" id="cQuestionAns2" /></td></tr>
+			<tr>	<td><div><b>Answer #4</b></div></th><td><input type="text" id="cQuestionAns3" /> </td></tr>
+		</table>
+
+		<button onclick="cQuestionAdvance(-1)">previous</button> 
+		<button onclick="cQuestionDelete()">delete</button> 
+		<button onclick="cQuestionAdvance(1)">next</button>
+		<button onclick="changeScene(2)">create and join</button>
+    </div>
+	
+	<div id="gameScene" style="visibility:collapse;">
+
+		<table border="0" cellpadding="20">
+			<tr>
+				<td style="background-color:#661C67;vertical-align:top;min-width:200px;">
+					<div>Players:</div><br />
+					<div id="participantList"></div>
+				</td>
+			<th style="vertical-align:top;">
+				<div style="vertical-align:top;">
+					<div id="gWelcomeMessage">
+						Your trivia game will start shortly... waiting for more people to join.
+					</div>
+					<br />
+					<div>
+						<div id="gQuestionPanel" style="visibility:hidden">
+							Question <div id="gQuestionNumber" >0</div> out of <div id="gQuestionTotal">0</div> (progress <div id="gCompletionStats">0%</div>)<br />
+							<br />
+							<div id="gQuestionContent"></div> <br />
+							<table border="0">
+								<tr>
+									<td><button id="gQuestionAns0" type="button" class="button-answer-a" onclick="gChooseAnswer(this.innerText)" /></td>
+									<td><button id="gQuestionAns1" type="button" class="button-answer-b" onclick="gChooseAnswer(this.innerText)" /></td>
+								</tr>
+								<tr>
+									<td><button id="gQuestionAns2" type="button" class="button-answer-c" onclick="gChooseAnswer(this.innerText)" /></td>
+									<td><button id="gQuestionAns3" type="button" class="button-answer-d" onclick="gChooseAnswer(this.innerText)" /></td>
+								</tr>
+							</table>
+						</div>
+
+						<div id="questionResult"></div> <br />
+						<button onclick="gStartQuestion()" id="startButton" style="visibility:collapse">start</button>
+						<button onclick="gStopQuestion()" id="stopButton" style="visibility:collapse">stop</button> <br />
+						<div id="qNumberLabel" style="visibility:collapse">current question #</div><div id="qNumber" style="visibility:collapse">1</div>
+						<button onclick="gNextQuestion(-1)" id="nextQuestionButtonDec" style="visibility:collapse">-</button>
+						<button onclick="gNextQuestion(1)" id="nextQuestionButtonInc" style="visibility:collapse">+</button><br />
+						<button onclick="gSendParticipants()" id="participantsButton" style="visibility:collapse">send participants</button>
+					</div>
+				</div>
+			</th>
+			</tr>
+		</table>
+	</div>
+
+	<div id="errorMessage" style="color:#f00;"></div>
+</div>
+
+<script>
+	// hub connection
+	var hubConnection;
+	var isOwner = false;
+	var isJoined = false;
+	var currentQuestionNumber = 0;
+	var currentQuestionCount = 0; // sent from server
+
+	// connection logic
+	async function startHubConnection() {  
+		try {
+			await hubConnection.start();
+			console.log("connected to server");
+		} catch (err) {
+			console.log(err);
+			setTimeout(startHubConnection, 5000);
+		}
+	}
+
+	function initialize() {
+		// check if we have a group
+		if (window.location.search.length <= 4) {
+			// choose a group and restart
+			var group = Math.random().toString(16).substr(2, 8);
+			console.log(window.location);
+			window.location.assign(window.location.href + "?" + group);
+			return;
+		}
+
+		// startup connection
+		hubConnection = new signalR.HubConnectionBuilder()
+			.withUrl("/game")
+			.configureLogging(signalR.LogLevel.Information)
+				.build();
+
+		// connect all the receive functions
+		hubConnection.on("ReceiveMessage", receiveMessage);
+		hubConnection.on("ReceiveIsOwner", receiveIsOwner);
+		hubConnection.on("ReceiveQuestion", receiveQuestion);
+		hubConnection.on("ReceiveParticipants", receiveParticipants);
+		hubConnection.on("ReceiveAnswer", receiveAnswer);
+		hubConnection.on("ReceiveQuestionComplete", receiveQuestionComplete);
+		hubConnection.on("ReceiveQuestionStats", receiveQuestionStats);
+		
+		// reconnect if closed
+		hubConnection.onclose(startHubConnection);
+
+		// start
+		startHubConnection();
+	}
+
+	//
+	// main logic
+	//
+	function changeScene(current) {
+		// 0 - choose username 'join | create'
+		// 1 - create game
+		// 2 - game
+
+		// check for a proper user name
+		if (!isJoined) {
+			var user = document.getElementById('userName').value;
+
+			// ensure the name is valid
+			if (!user || user.length <= 0 || user.indexOf(',') >= 0 || user.indexOf('<') >= 0 || user.indexOf('>') >= 0 || user.indexOf(':') >= 0) {
+				document.getElementById('userName').value = "<choose your username>";
+				return;
+			}
+
+			// join the game
+			sendJoinGame();
+
+			// mark that we have joined the game
+			isJoined = true;
+		}
+
+		// change to create game
+		if (current == 1) {
+			// toggle the scenes
+			document.getElementById('setupScene').style.visibility = "collapse";
+			document.getElementById('setupScene').style.display = "none";
+			document.getElementById('createGameScene').style.visibility  = "visible";
+			document.getElementById('createGameScene').style.display = "";
+			document.getElementById('gameScene').style.visibility = "collapse";
+
+			// check for a browser refresh - request the first question
+			sendGetQuestion(0 /* num */, false /* broadcast */);
+        }
+
+		// change to game
+		if (current == 2) {
+			// check that there is at least 1 question
+			if (isOwner) {
+				if (currentQuestionCount <= 0) {
+					receiveMessage("must provide at least 1 question");
+					return;
+				}
+
+				if (!!document.getElementById('cQuestionContent').value) {
+					receiveMessage("submit question in flight before creating game");
+					return;
+				}
+
+				// flip the owner buttons to visible
+				document.getElementById('nextQuestionButtonInc').style.visibility = "visible";
+				document.getElementById('nextQuestionButtonDec').style.visibility = "visible";
+				document.getElementById('startButton').style.visibility = "visible";
+				document.getElementById('stopButton').style.visibility = "visible";
+				document.getElementById('participantsButton').style.visibility = "visible";
+				document.getElementById('qNumber').style.visibility = "visible";
+				document.getElementById('qNumberLabel').style.visibility = "visible";
+
+				// reset
+				currentQuestionNumber = 0;
+			}
+
+			// toggle the scenes
+			document.getElementById('setupScene').style.visibility  = "collapse";
+			document.getElementById('setupScene').style.display = "none";
+			document.getElementById('createGameScene').style.visibility = "collapse";
+			document.getElementById('createGameScene').style.display = "none";
+            document.getElementById('gameScene').style.visibility  = "visible";
+        }
+
+		// clear any error messages
+		receiveMessage("");
+    }
+
+	// create screen logic
+
+	function cQuestionAdvance(delta){
+		if (!isOwner) return;
+
+		// grab the current question content
+		let content = document.getElementById('cQuestionContent').value;
+		let ans0 = document.getElementById('cQuestionAns0').value;
+		let ans1 = document.getElementById('cQuestionAns1').value;
+		let ans2 = document.getElementById('cQuestionAns2').value;
+		let ans3 = document.getElementById('cQuestionAns3').value;
+
+		// submit the current question
+		if (!!content && content.length >= 1) {
+			sendAddUpdateQuestion(currentQuestionNumber, content, ans0, ans1, ans2, ans3);
+		}
+
+		// move to the next question (based on delta)
+		if ((delta < 0 && currentQuestionNumber > 0) || 
+			(delta > 0 && !!content && content.length >= 1)) {
+			currentQuestionNumber += delta;
+		}
+
+		// populate the content for the new question (updates total)
+		sendGetQuestion(currentQuestionNumber, false /*broadcast*/);
+	}
+
+	function cQuestionDelete() {
+		if (!isOwner) return;
+
+		// delete the current question
+		sendDeleteQuestion(currentQuestionNumber);
+
+		// populate with the next question (updates total)
+		sendGetQuestion(currentQuestionNumber, false /*broadcast*/);
+	}
+
+	// game logic
+
+	function gNextQuestion(delta) {
+		// advance the game counter
+
+		if (!isOwner) return;
+
+		// advance game number counter
+		currentQuestionNumber+=delta;
+		
+		if (currentQuestionNumber < 0 || currentQuestionNumber >= currentQuestionCount) {
+			// done
+			receiveMessage("no more questions");
+
+			if (currentQuestionNumber < 0) { currentQuestionNumber = 0; }
+			else { currentQuestionNumber = currentQuestionCount - 1; }
+		}
+				
+		// display the number
+		document.getElementById('qNumber').innerText = (currentQuestionNumber+1);
+	}
+
+	function gStartQuestion() {
+		// display the current question to everyone
+
+		if (!isOwner) return;
+
+		// send the question to everyone
+		sendGetQuestion(currentQuestionNumber, true /*broadcast*/);
+	}
+
+	function gStopQuestion() {
+		// stop receiving answers for the current question and highlight the answer
+
+		if (!isOwner) return;
+
+		// close incoming answers and send the answer out
+		sendFinishQuestion(currentQuestionNumber);
+	}
+
+	function gSendParticipants() {
+		// update participants info to everyone
+
+		if (!isOwner) return;
+
+		sendParticipants();
+	}
+
+	function gChooseAnswer(ans) {
+		// send this answer to the current question
+		sendAnswer(currentQuestionNumber, ans);
+
+		// prohibiting sending muliple answers is handled on the server
+	}
+
+	function displayParticipants(users) {
+		var output = document.getElementById('participantList');
+
+		// sort by score
+		var byscore = [];
+		for (key in users) {
+			byscore.push([key, users[key].score]);
+		}
+		byscore.sort(function(a, b) {
+			return b[1] - a[1];
+		});
+
+		// display
+		output.innerHTML = "<div>";
+		for(var i=0; i<byscore.length; i++) {
+			var key = byscore[i][0];
+			output.innerHTML += "#" + (i + 1) + " " + users[key].user + " (" + users[key].score + ")<br>";
+		}
+
+		output.innerHTML += "</div>";
+	}
+
+	//
+	// communicate with server
+	//
+
+	// send
+	async function sendJoinGame() {
+		var group = window.location.search.substring(1, 9);
+		var user = document.getElementById('userName').value;
+
+		try {
+			await hubConnection.invoke("SendJoinGame", group, user);
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function sendGetQuestion(num, broadcast) {
+		var group = window.location.search.substring(1, 9);
+
+		try {
+			await hubConnection.invoke("SendGetQuestion", group, num, broadcast);
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function sendFinishQuestion(num) {
+		var group = window.location.search.substring(1, 9);
+
+		try {
+			await hubConnection.invoke("SendFinishQuestion", group, num);
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function sendAddUpdateQuestion(num, content, ans0, ans1, ans2, ans3) {
+		var group = window.location.search.substring(1, 9);
+
+		try {
+			await hubConnection.invoke("SendAddUpdateQuestion", group, num, content, ans0, ans1, ans2, ans3);
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function sendDeleteQuestion(num) {
+		var group = window.location.search.substring(1, 9);
+
+		try {
+			await hubConnection.invoke("SendDeleteQuestion", group, num);
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function sendParticipants() {
+		var group = window.location.search.substring(1, 9);
+
+		try {
+			await hubConnection.invoke("SendParticipants", group);
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	async function sendAnswer(num, ans) {
+		var group = window.location.search.substring(1, 9);
+
+		try {
+			await hubConnection.invoke("SendAnswer", group, num, ans);
+		} catch (err) {
+			console.error(err);
+		}
+	}
+
+	// receive
+
+	function receiveMessage(msg) {
+		document.getElementById('errorMessage').innerText = msg;
+		console.error(msg);
+	}
+
+	function receiveIsOwner() {
+		isOwner = true;
+		// toggle the create screen
+		changeScene(1);
+	}
+
+	function receiveAnswer(num, correct) {
+		// indicate to the user that their answer was accepted (and if it was correct)
+
+		// disable the buttons except for the one that is the right answer
+		if (document.getElementById('gQuestionAns0').innerText !== correct) {
+			document.getElementById('gQuestionAns0').style.visibility = "hidden";
+		}
+		if (document.getElementById('gQuestionAns1').innerText !== correct) {
+			document.getElementById('gQuestionAns1').style.visibility = "hidden";
+		}
+		if (document.getElementById('gQuestionAns2').innerText !== correct) {
+			document.getElementById('gQuestionAns2').style.visibility = "hidden";
+		}
+		if (document.getElementById('gQuestionAns3').innerText !== correct) {
+			document.getElementById('gQuestionAns3').style.visibility = "hidden";
+		}
+	}
+
+	function receiveQuestionComplete(num, ans) {
+		// display the outcome of the question
+		document.getElementById('questionResult').innerText = "you answered '" + ans +"'";
+	}
+
+	function receiveQuestionStats(total, complete) {
+		// share the completion stats
+		document.getElementById('gCompletionStats').innerText = (complete * 100/total).toFixed(0) + "%";
+	}
+
+	function receiveQuestion(num, total, broadcast, content, ans0, ans1, ans2, ans3) {
+		if (!broadcast) {
+			// update the inputs for when creating a game
+			document.getElementById('cQuestionNumber').innerText = num+1;
+			document.getElementById('cQuestionContent').value = content;
+			document.getElementById('cQuestionAns0').value = ans0;
+			document.getElementById('cQuestionAns1').value = ans1;
+			document.getElementById('cQuestionAns2').value = ans2;
+			document.getElementById('cQuestionAns3').value = ans3;
+		} else {
+			// toggle all the elements to visible
+			document.getElementById('gQuestionPanel').style.visibility  = "visible";
+
+			// remove the welcome message
+			document.getElementById('gWelcomeMessage').style.visibility = "collapse";
+
+			// update the inputs for when playing a game
+			document.getElementById('gQuestionNumber').innerText = num+1;
+			document.getElementById('gQuestionTotal').innerText = total;
+			document.getElementById('gQuestionContent').innerText = content;
+			document.getElementById('gQuestionAns0').innerText = ans0;
+			document.getElementById('gQuestionAns1').innerText = ans1;
+			document.getElementById('gQuestionAns2').innerText = ans2;
+			document.getElementById('gQuestionAns3').innerText = ans3;
+
+			// make the choices visible
+			document.getElementById('gQuestionAns0').style.visibility = "visible";
+			document.getElementById('gQuestionAns1').style.visibility = "visible";
+			document.getElementById('gQuestionAns2').style.visibility = "visible";
+			document.getElementById('gQuestionAns3').style.visibility = "visible";
+
+			// reset the choice
+			document.getElementById('questionResult').innerText = "";
+
+			// reset stats
+			document.getElementById('gCompletionStats').innerText = "0%";
+		}
+
+		// set the current question info
+		currentQuestionNumber = num;
+		currentQuestionCount = total;
+
+		// clear any error messages
+		receiveMessage("");
+	}
+
+	function receiveParticipants(json) {
+		var userDictionary = {};
+
+		// walk current participants
+		var obj = JSON.parse(json);
+		obj.forEach((user) => {
+			var parts = user.split(',', 3);
+			if (parts.length == 3)
+			{
+				// add the user
+				userDictionary[parts[0]] = {
+					"user": parts[1],
+					"score": parts[2]
+				};
+			}
+		});
+
+		// display participant informaton
+		displayParticipants(userDictionary);
+	}
+
+	// do the initialization
+	initialize();
+</script>
