@@ -15,15 +15,15 @@ namespace ClrKahoot.Hubs
                 // remove this user
                 groupdetails.RemoveUser(userdetails);
 
-                // if the owner was removed, then elevate another user as owner and notify them
+                // if the owner was removed, the game is over
                 if (isowner)
                 {
-                    var newowner = groupdetails.GetUsers().FirstOrDefault();
-                    if (newowner != null && groupdetails.TryElevateUserToOwner(newowner))
-                    {
-                        await Clients.Client(newowner.ConnectionId).SendAsync("ReceiveIsOwner");
-                    }
+                    // notify everyone that the game is over
+                    await Clients.Group(groupdetails.Name).SendAsync("ReceiveMessage", "the owner of this game has disconnected and the game is over");
                 }
+
+                // update the participant list
+                await SendParticipants(groupdetails.Name);
             }
         }
 
