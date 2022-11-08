@@ -154,7 +154,7 @@ namespace ClrKahoot.Hubs
                                 var rand = new Random();
                                 for (int c = 0; c < ans.Length; c++)
                                 {
-                                    var i = rand.Next() % ans.Length;
+                                    var i = c;
                                     // get a random index
                                     var j = i;
                                     while (j == i) j = rand.Next() % ans.Length;
