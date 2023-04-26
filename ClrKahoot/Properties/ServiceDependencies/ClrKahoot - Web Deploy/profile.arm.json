@@ -21,7 +21,7 @@
     },
     "resourceName": {
       "type": "string",
-      "defaultValue": "ClrKahoot20230426102156",
+      "defaultValue": "ClrKahoot",
       "metadata": {
         "description": "Name of the main resource to be created by this template."
       }

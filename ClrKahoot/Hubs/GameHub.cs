@@ -138,7 +138,7 @@ namespace ClrKahoot.Hubs
                             {
                                 // send to everyone in the group and shuffle the answers
 
-                                // do not block sending ative questions, as this is the fastest way to add a player mid question
+                                // do not block sending active questions, as this is the fastest way to add a player mid question
 
                                 // mark the question as active
                                 groupdetails.SetQuestionActive(number, active: true);
@@ -631,8 +631,9 @@ namespace ClrKahoot.Hubs
 
             private static string Sanitize(string code)
             {
-                // replace all the <'s with &lt;
-                return code.Replace("<", "&lt;");
+                // replace '\n' with '&#10;'
+                // replace '<' with '&lt;'
+                return code.Replace("\\n", "&#10;").Replace("<", "&lt;");
             }
             #endregion
         }

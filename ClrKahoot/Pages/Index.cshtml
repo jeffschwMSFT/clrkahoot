@@ -36,6 +36,7 @@ question/answer lengths + answer word wrap (can look ugly)
 		min-width: 300px;
 		max-width: 300px;
 		font-size: 20px;
+		white-space: pre-line;
 	}
 	.button-answer-b {
 		border-color: white;
@@ -45,6 +46,7 @@ question/answer lengths + answer word wrap (can look ugly)
 		min-width: 300px;
 		max-width: 300px;
 		font-size: 20px;
+		white-space: pre-line;
 	}
 	.button-answer-c {
 		border-color: white;
@@ -54,6 +56,7 @@ question/answer lengths + answer word wrap (can look ugly)
 		min-width: 300px;
 		max-width: 300px;
 		font-size: 20px;
+		white-space: pre-line;
 	}
 	.button-answer-d {
 		border-color: white;
@@ -63,6 +66,7 @@ question/answer lengths + answer word wrap (can look ugly)
 		min-width: 300px;
 		max-width: 300px;
 		font-size: 20px;
+		white-space: pre-line;
 	}
 
 </style>
@@ -115,7 +119,7 @@ question/answer lengths + answer word wrap (can look ugly)
 						<div id="gQuestionPanel" style="visibility:hidden">
 							Question <div id="gQuestionNumber" >0</div> out of <div id="gQuestionTotal">0</div> (players answered <div id="gCompletionStats">0%</div>)<br />
 							<br />
-							<div id="gQuestionContent"></div> <br />
+								<div id="gQuestionContent" style="white-space: pre-line"></div> <br />
 							<table border="0">
 								<tr>
 									<td><button id="gQuestionAns0" type="button" class="button-answer-a" onclick="gChooseAnswer(this.innerText)" /></td>
@@ -523,11 +527,11 @@ question/answer lengths + answer word wrap (can look ugly)
 			// update the inputs for when playing a game
 			document.getElementById('gQuestionNumber').innerText = num+1;
 			document.getElementById('gQuestionTotal').innerText = total;
-			document.getElementById('gQuestionContent').innerText = content;
-			document.getElementById('gQuestionAns0').innerText = ans0;
-			document.getElementById('gQuestionAns1').innerText = ans1;
-			document.getElementById('gQuestionAns2').innerText = ans2;
-			document.getElementById('gQuestionAns3').innerText = ans3;
+			document.getElementById('gQuestionContent').innerHTML = content;
+			document.getElementById('gQuestionAns0').innerHTML = ans0;
+			document.getElementById('gQuestionAns1').innerHTML = ans1;
+			document.getElementById('gQuestionAns2').innerHTML = ans2;
+			document.getElementById('gQuestionAns3').innerHTML = ans3;
 
 			// make the choices visible
 			document.getElementById('gQuestionAns0').style.visibility = "visible";
