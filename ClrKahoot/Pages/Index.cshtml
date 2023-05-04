@@ -15,6 +15,7 @@ question/answer lengths + answer word wrap (can look ugly)
 		display:inline;
 		color: white;
 		font-size: 20px;
+		text-align: left;
 	}
 	button {
 		color: white;
@@ -119,7 +120,7 @@ question/answer lengths + answer word wrap (can look ugly)
 						<div id="gQuestionPanel" style="visibility:hidden">
 							Question <div id="gQuestionNumber" >0</div> out of <div id="gQuestionTotal">0</div> (players answered <div id="gCompletionStats">0%</div>)<br />
 							<br />
-								<div id="gQuestionContent" style="white-space: pre-line"></div> <br />
+								<div id="gQuestionContent" style="text-align: left;white-space: pre-line;"></div> <br />
 							<table border="0">
 								<tr>
 									<td><button id="gQuestionAns0" type="button" class="button-answer-a" onclick="gChooseAnswer(this.innerText)" /></td>
@@ -527,7 +528,7 @@ question/answer lengths + answer word wrap (can look ugly)
 			// update the inputs for when playing a game
 			document.getElementById('gQuestionNumber').innerText = num+1;
 			document.getElementById('gQuestionTotal').innerText = total;
-			document.getElementById('gQuestionContent').innerHTML = content;
+			document.getElementById('gQuestionContent').innerHTML = "<p>" + content + "</p>";
 			document.getElementById('gQuestionAns0').innerHTML = ans0;
 			document.getElementById('gQuestionAns1').innerHTML = ans1;
 			document.getElementById('gQuestionAns2').innerHTML = ans2;
