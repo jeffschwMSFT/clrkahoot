@@ -632,8 +632,12 @@ namespace ClrKahoot.Hubs
             private static string Sanitize(string code)
             {
                 // replace '\n' with '&#10;'
+                // replace '\t' with '&#9;'
                 // replace '<' with '&lt;'
-                return code.Replace("\\n", "&#10;").Replace("<", "&lt;");
+                return code
+                    .Replace("\\n", "&#10;")
+                    .Replace("\\t", "&#9;")
+                    .Replace("<", "&lt;");
             }
             #endregion
         }
